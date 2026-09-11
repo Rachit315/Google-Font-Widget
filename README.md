@@ -1,4 +1,4 @@
-# Stack Sans — animated font card
+# Font Widget — animated font card
 
 A pixel-faithful rebuild of the reference card in **HTML + Tailwind CSS + [Motion](https://motion.dev)**.
 
