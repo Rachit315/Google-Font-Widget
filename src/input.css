@@ -1,0 +1,451 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Strong custom curves — the built-in CSS easings are too weak */
+    --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
+  }
+
+  html { color-scheme: dark; }
+
+  body {
+    font-family: 'Inter Tight', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background-image: radial-gradient(120% 80% at 50% 0%, #1e1e1e 0%, #161616 62%);
+  }
+
+  /* Grotesque numerals — falls back to Helvetica metrics, which match the reference */
+  .numeral {
+    font-family: 'Inter Tight', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-feature-settings: 'tnum' 1;
+  }
+}
+
+@layer components {
+  /* The card is the sizing container: every type size below scales with it,
+     so the composition holds at any width. */
+  .card {
+    container-type: inline-size;
+    box-shadow:
+      inset 0 1px 0 0 rgb(255 255 255 / 0.5),
+      0 24px 60px -20px rgb(0 0 0 / 0.65),
+      0 2px 10px -4px rgb(0 0 0 / 0.5);
+    /* One exact, GPU-only property — never `all`, never box-shadow */
+    transition: transform 220ms var(--ease-out-strong);
+  }
+
+  /* The lifted shadow is a separate layer we crossfade, because animating
+     box-shadow itself repaints every frame. Opacity stays on the GPU. */
+  .card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    box-shadow:
+      0 38px 78px -22px rgb(0 0 0 / 0.8),
+      0 4px 14px -4px rgb(0 0 0 / 0.55);
+    transition: opacity 220ms var(--ease-out-strong);
+  }
+
+  /* Start state lives behind `.js`, so without JavaScript the card is simply
+     visible rather than permanently invisible. Final state is CSS-owned too,
+     which keeps hover and press from fighting leftover inline styles. */
+  .js .card { opacity: 0; transform: translateY(14px) scale(0.97); }
+  .js .card[data-ready] { opacity: 1; transform: none; }
+  .js [data-reveal] { opacity: 0; }
+  .js [data-reveal][data-shown] { opacity: 1; }
+
+  /* Hover deepens the shadow only — the card never changes size or position.
+     Gated anyway: touch devices fire a false hover on tap. */
+  @media (hover: hover) and (pointer: fine) {
+    .card[data-ready]:hover::after { opacity: 1; }
+  }
+
+  .panel { box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.9); }
+
+  /* The sample glyphs take on whichever family the picker selected. */
+  .sample {
+    font-family: var(--sample-font, 'Inter Tight'), 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  }
+
+  /* Font picker ------------------------------------------------------- */
+
+  .chevron {
+    width: 5.4cqw;
+    height: 5.4cqw;
+    min-width: 16px;
+    min-height: 16px;
+    transition: color 140ms ease, transform 200ms var(--ease-out-strong);
+  }
+  /* Invisible hit area — a 19px chevron is not a touch target */
+  .chevron::before {
+    content: '';
+    position: absolute;
+    inset: -14px;
+    border-radius: 999px;
+  }
+  .chevron:hover { color: rgb(0 0 0 / 0.75); }
+  .chevron:active { transform: scale(0.92); }
+  .chevron[aria-expanded='true'] { transform: rotate(180deg); color: rgb(0 0 0 / 0.75); }
+  .chevron:focus-visible {
+    outline: 2px solid theme('colors.brand');
+    outline-offset: 3px;
+  }
+
+  .menu {
+    position: absolute;
+    top: calc(100% + 2.2cqw);
+    left: 0;
+    z-index: 20;
+    width: max(180px, 46cqw);
+    max-height: 232px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 5px;
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow:
+      0 0 0 1px rgb(0 0 0 / 0.07),
+      0 18px 40px -12px rgb(0 0 0 / 0.45),
+      0 2px 6px -2px rgb(0 0 0 / 0.25);
+
+    /* Scales out of its trigger, not out of thin air */
+    transform-origin: top left;
+    max-width: calc(100vw - 32px);
+    transition:
+      opacity 180ms var(--ease-out-strong),
+      transform 180ms var(--ease-out-strong);
+  }
+
+  .menu[data-closing],
+  .menu:not([data-open]) {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+  .menu[data-open] {
+    opacity: 1;
+    transform: none;
+  }
+  /* Exit snaps — the system responding, not the user deciding */
+  .menu[data-closing] { transition-duration: 120ms; }
+
+  /* Flips above the trigger when the viewport runs out of room below */
+  .menu[data-placement='top'] {
+    top: auto;
+    bottom: calc(100% + 2.2cqw);
+    transform-origin: bottom left;
+  }
+
+  .menu-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.1;
+    color: #191919;
+    text-align: left;
+    transition: background-color 120ms ease;
+  }
+  .menu-item:hover,
+  .menu-item[data-active] { background: rgb(0 0 0 / 0.055); }
+  .menu-item:focus-visible {
+    outline: 2px solid theme('colors.brand');
+    outline-offset: -2px;
+  }
+  .menu-item[aria-selected='true'] { font-weight: 600; }
+  .menu-item[aria-selected='true']::after {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: theme('colors.brand');
+  }
+  @media (pointer: coarse) {
+    .menu-item { padding: 11px 12px; font-size: 14px; }
+    .menu { max-height: 44vh; }
+  }
+
+  .menu-count {
+    font-size: 11px;
+    color: #9a9a9a;
+    font-variant-numeric: tabular-nums;
+  }
+  .menu-item[aria-selected='true'] .menu-count { display: none; }
+
+
+  /* Credit line + link preview ---------------------------------------- */
+
+  .credit {
+    margin: 22px auto 0;
+    max-width: min(92vw, 460px);
+    text-align: center;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: #7e7e7e;
+  }
+
+  .link {
+    color: #d8d8d8;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    text-decoration-color: rgb(216 216 216 / 0.45);
+    border-radius: 3px;
+    transition: color 140ms ease, text-decoration-color 140ms ease;
+  }
+  .link:hover {
+    color: #ffffff;
+    text-decoration-color: theme('colors.brand');
+  }
+  .link:focus-visible {
+    outline: 2px solid theme('colors.brand');
+    outline-offset: 3px;
+  }
+
+  .preview {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 60;
+    width: 296px;
+    padding: 8px;
+    border-radius: 16px;
+    background: #f4f3f1;
+    color: #1a1a1a;
+    box-shadow:
+      0 0 0 1px rgb(0 0 0 / 0.5),
+      0 26px 54px -16px rgb(0 0 0 / 0.75);
+
+    /* The cursor drives translate; opacity and scale carry the entrance, so
+       everything animated here stays on the GPU. */
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(0.96);
+    transform-origin: top left;
+    pointer-events: none;
+    transition:
+      opacity 180ms var(--ease-out-strong),
+      scale 180ms var(--ease-out-strong);
+  }
+  .preview[data-open] {
+    opacity: 1;
+    scale: 1;
+  }
+  /* Exit snaps — the system responding, not the user deciding */
+  .preview[data-closing] { transition-duration: 110ms; }
+
+  .preview-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 4px 8px;
+  }
+  .preview-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    background: #e60023; /* Pinterest red */
+  }
+  .preview-url {
+    font-size: 11px;
+    letter-spacing: 0.01em;
+    color: #6f6f6f;
+  }
+
+  .preview-shot {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border-radius: 10px;
+    background: #111111;
+  }
+  .preview-shot img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top left;
+    display: block;
+  }
+  .preview-shot img:not([hidden]) + .preview-mock { display: none; }
+
+  /* Stand-in rendering of the pin page, drawn rather than photographed.
+     Replaced automatically when public/pin-preview.png exists. */
+  .preview-mock {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    background: #ffffff;
+    font-size: 0;
+  }
+
+  .pm-rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    width: 15px;
+    padding-top: 6px;
+    border-right: 1px solid #ededed;
+  }
+  .pm-logo {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: #e60023;
+  }
+  .pm-ico {
+    width: 6px;
+    height: 6px;
+    border-radius: 2px;
+    background: #d8d8d8;
+  }
+
+  .pm-page {
+    flex: 1;
+    min-width: 0;
+    padding: 5px 5px 0;
+  }
+  .pm-search {
+    display: block;
+    height: 8px;
+    margin-bottom: 5px;
+    border-radius: 999px;
+    background: #ececec;
+  }
+
+  .pm-row { display: flex; gap: 4px; height: calc(100% - 13px); }
+
+  /* The pinned design itself */
+  .pm-pin {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    gap: 5px;
+    padding: 4px;
+    border-radius: 6px;
+    background: #111111;
+  }
+  .pm-art {
+    width: 47%;
+    display: grid;
+    place-items: center;
+  }
+  .pm-card {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 3px;
+    border-radius: 5px;
+    background: #efeeec;
+  }
+  .pm-panel {
+    height: 46px;
+    padding: 3px 4px;
+    border-radius: 3px;
+    background:
+      radial-gradient(circle at 1px 1px, #2c2c2c 0.7px, transparent 0.8px) 0 0 / 3px 3px,
+      linear-gradient(to top, rgb(255 107 0 / 0.9) 0 26%, #0c0c0c 46%);
+  }
+  .pm-panel span {
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: -0.045em;
+    color: #f2f2f2;
+  }
+  .pm-foot { display: flex; }
+  .pm-tile {
+    display: grid;
+    place-items: center;
+    width: 17px;
+    height: 17px;
+    border-radius: 4px;
+    background: theme('colors.brand');
+    color: #000;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: -0.05em;
+  }
+
+  /* The pin's metadata column */
+  .pm-side {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+  }
+  .pm-line {
+    height: 4px;
+    border-radius: 999px;
+    background: #333333;
+  }
+  .pm-title { height: 6px; background: #6d6d6d; }
+  .pm-short { width: 62%; }
+  .pm-save {
+    width: 26px;
+    height: 9px;
+    margin: 2px 0;
+    border-radius: 999px;
+    background: #e60023;
+  }
+
+  /* The masonry column alongside */
+  .pm-grid {
+    width: 26%;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .pm-grid span { display: block; border-radius: 5px; }
+  .pm-tileA { flex: 1.4; background: linear-gradient(#0d0d0d, #10314a); }
+  .pm-tileB { flex: 1; background: #0f2a2a; }
+  .pm-tileC { flex: 1.2; background: #171717; }
+
+  .preview-title {
+    margin: 8px 4px 3px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.35;
+    color: #1a1a1a;
+  }
+
+  /* Container-relative type scale, matched to the reference composition */
+  .t-label { font-size: 4.2cqw; }
+  .t-hero  {
+    font-size: var(--hero-size, 32cqw);
+    margin-top: calc(2.2cqw + 8px); /* +8px of air under the label */
+    margin-left: -0.045em;
+    white-space: nowrap;
+  }
+  .t-tile  { font-size: var(--sample-size, 24cqw); white-space: nowrap; }
+  .t-title { font-size: 10cqw; }
+  .t-title[data-len='long']  { font-size: 8.2cqw; }
+  .t-title[data-len='xlong'] { font-size: 6.6cqw; }
+  .t-meta  { font-size: 3.1cqw; }
+}
+
+/* Fewer and gentler motion — keep opacity, drop every movement */
+@media (prefers-reduced-motion: reduce) {
+  .js .card,
+  .js .card[data-ready],
+  .chevron,
+  .chevron[aria-expanded='true'],
+  .menu,
+  .menu[data-open],
+  .menu:not([data-open]) {
+    transform: none;
+  }
+  .preview,
+  .preview[data-open] {
+    scale: 1;
+  }
+}
